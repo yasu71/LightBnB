@@ -61,6 +61,9 @@ const getUserWithId = function(id) {
       return null;
     }
   })
+  .catch((err) => {
+    console.err(err);
+  })
   // return Promise.resolve(users[id]);
 }
 exports.getUserWithId = getUserWithId;
@@ -79,10 +82,13 @@ const addUser =  function(user) {
   `, [user.name, user.email, user.password])
   .then ((res) => {
     if (res.rows.length > 0) {
-      return res.row[0];
+      return res.rows[0];
     } else {
       return null;
     }
+  })
+  .catch ((err) => {
+    console.error(err);
   })
   // const userId = Object.keys(users).length + 1;
   // user.id = userId;
@@ -99,7 +105,28 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
+
+  return pool.query(`
+  SELECT reservations.*, properties.*, avg(property_reviews.rating) AS average_rating
+  FROM reservations
+  JOIN properties ON properties.id = property_id
+  JOIN property_reviews ON reservations.id = reservation_id
+  WHERE reservations.guest_id = $1 AND reservations.end_date < Now()::date
+  GROUP BY reservations.id, properties.id
+  ORDER BY reservations.start_date DESC
+  LIMIT $2
+  `, [guest_id, limit])
+  .then((res) => {
+    if (res.rows.length > 0) {
+      return res.rows;
+    } else {
+      return null;
+    }
+  })
+  .catch((err) => {
+    console.error(err);
+  })
+  // return getAllProperties(null, 2);
 }
 exports.getAllReservations = getAllReservations;
 
@@ -118,7 +145,7 @@ const getAllProperties = function(options, limit = 10) {
   ORDER BY id
   LIMIT $1
   `, [limit])
-  .then(res => (res.rows));
+  .then(res => (res.rows))
   // const limitedProperties = {};
   // for (let i = 1; i <= limit; i++) {
   //   limitedProperties[i] = properties[i];
